@@ -9,6 +9,7 @@ Standard library only, no network, no randomness.
 
 import os
 import re
+import sys
 
 HAIKU = (
     "At three the stack trace\n"
@@ -22,8 +23,10 @@ HAIKU = (
 # I(1) signed(1) every(2) frame(1). Total: 76 characters incl. newline.
 EXPECTED_SYLLABLES = (5, 7, 5)
 
-# Words the plain vowel-group rule miscounts.
-_SPECIAL = {"every": 2}
+# Words the plain vowel-group rule miscounts: "every" is two syllables
+# (ev-ery) but has three vowel groups, and the same holds for its
+# family (everyone, everything, everybody).
+_SPECIAL = {"every": 2, "everyone": 3, "everything": 3, "everybody": 4}
 
 
 def _syllables(word: str) -> int:
@@ -42,14 +45,20 @@ def _syllables(word: str) -> int:
     return max(1, n)
 
 
+def _counts(text: str) -> tuple:
+    """Per-line syllable counts, for self-test output."""
+    lines = text.rstrip("\n").split("\n")
+    return tuple(
+        sum(_syllables(w) for w in line.split()) for line in lines
+    )
+
+
 def _validate(text: str) -> None:
     """Fail loudly unless the haiku meets the competition's gate."""
     assert 1 <= len(text) <= 200, "haiku must be 1-200 characters"
     lines = text.rstrip("\n").split("\n")
     assert len(lines) == 3, "haiku must be exactly three lines"
-    counts = tuple(
-        sum(_syllables(w) for w in line.split()) for line in lines
-    )
+    counts = _counts(text)
     assert counts == EXPECTED_SYLLABLES, (
         f"syllable shape must be 5-7-5, got {counts}"
     )
@@ -57,6 +66,13 @@ def _validate(text: str) -> None:
 
 
 def main() -> None:
+    if "--self-test" in sys.argv[1:]:
+        print("lines:", len(HAIKU.rstrip("\n").split("\n")))
+        print("syllables:", _counts(HAIKU))
+        print("chars:", len(HAIKU))
+        _validate(HAIKU)
+        print("self-test: OK")
+        return
     _validate(HAIKU)
     out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
     os.makedirs(out_dir, exist_ok=True)
